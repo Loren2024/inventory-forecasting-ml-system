@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Dashboard de Predicción de Inventarios</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Tailwind CSS CDN (solo desarrollo) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Plotly (versión reciente) -->
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  </head>
+  <body class="bg-slate-900 text-slate-100">
+    <div class="min-h-screen flex flex-col">
+      <!-- Header -->
+      <header class="border-b border-slate-700 bg-slate-950/80">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 class="text-2xl md:text-3xl font-semibold">
+              Sistema de Predicción de Inventarios
+            </h1>
+            <p class="text-sm text-slate-400">
+              Modelo híbrido (ARIMA, Random Forest, XGBoost) para soporte a la gestión de inventarios.
+            </p>
+          </div>
+          <div class="text-right text-xs md:text-sm text-slate-400">
+            <p>Demo local · UPC TSP</p>
+            <p>Backend: FastAPI · Frontend: HTML / CSS / JS</p>
+          </div>
+        </div>
+      </header>
+
+      <!-- Contenido principal -->
+      <main class="flex-1 max-w-6xl mx-auto px-4 py-6 space-y-8">
+        <!-- KPIs globales -->
+        <section>
+          <h2 class="text-xl font-semibold mb-3">
+            Indicadores globales del modelo
+          </h2>
+          <div class="grid gap-4 md:grid-cols-4 lg:grid-cols-4">
+            <!-- Total SKUs -->
+            <div class="bg-slate-800/70 rounded-2xl p-4 shadow-sm border border-slate-700">
+              <p class="text-xs uppercase tracking-wide text-slate-400">
+                SKUs en modelo
+              </p>
+              <p id="kpi-total-skus" class="mt-2 text-2xl font-semibold">
+                -
+              </p>
+              <p class="mt-1 text-xs text-slate-400">
+                Cantidad de productos incluidos en el entrenamiento.
+              </p>
+            </div>
+
+            <!-- MAPE train ARIMA -->
+            <div class="bg-slate-800/70 rounded-2xl p-4 shadow-sm border border-slate-700">
+              <p class="text-xs uppercase tracking-wide text-slate-400">
+                MAPE ARIMA (entrenamiento)
+              </p>
+              <p id="kpi-mape-train-arima" class="mt-2 text-2xl font-semibold">
+                -
+              </p>
+              <p class="mt-1 text-xs text-slate-400">
+                Error porcentual promedio del modelo ARIMA en datos históricos.
+              </p>
+            </div>
+
+            <!-- MAPE train RF -->
+            <div class="bg-slate-800/70 rounded-2xl p-4 shadow-sm border border-slate-700">
+              <p class="text-xs uppercase tracking-wide text-slate-400">
+                MAPE Random Forest (entrenamiento)
+              </p>
+              <p id="kpi-mape-train-rf" class="mt-2 text-2xl font-semibold">
+                -
+              </p>
+              <p class="mt-1 text-xs text-slate-400">
+                Error porcentual promedio del modelo Random Forest.
+              </p>
+            </div>
+
+            <!-- MAPE train XGB -->
+            <div class="bg-slate-800/70 rounded-2xl p-4 shadow-sm border border-slate-700">
+              <p class="text-xs uppercase tracking-wide text-slate-400">
+                MAPE XGBoost (entrenamiento)
+              </p>
+              <p id="kpi-mape-train-xgb" class="mt-2 text-2xl font-semibold">
+                -
+              </p>
+              <p class="mt-1 text-xs text-slate-400">
+                Error porcentual promedio del modelo XGBoost.
+              </p>
+            </div>
+          </div>
+
+          <div class="mt-4 grid gap-4 md:grid-cols-4 lg:grid-cols-4">
+            <!-- MAPE híbrido Q1 -->
+            <div class="bg-slate-800/70 rounded-2xl p-4 shadow-sm border border-slate-700">
+              <p class="text-xs uppercase tracking-wide text-slate-400">
+                MAPE modelo híbrido (Q1-2025)
+              </p>
+              <p id="kpi-mape-val-hybrid" class="mt-2 text-2xl font-semibold">
+                -
+              </p>
+              <p class="mt-1 text-xs text-slate-400">
+                Error porcentual del modelo híbrido frente a datos reales del Q1-2025.
+              </p>
+            </div>
+
+            <!-- Ratio volumen -->
+            <div class="bg-slate-800/70 rounded-2xl p-4 shadow-sm border border-slate-700">
+              <p class="text-xs uppercase tracking-wide text-slate-400">
+                Volumen predicho / real (Q1-2025)
+              </p>
+              <p id="kpi-ratio-volumen" class="mt-2 text-2xl font-semibold">
+                -
+              </p>
+              <p class="mt-1 text-xs text-slate-400">
+                Cercanía entre el volumen total predicho y el volumen real.
+              </p>
+            </div>
+
+            <!-- Volumen real Q1 -->
+            <div class="bg-slate-800/70 rounded-2xl p-4 shadow-sm border border-slate-700">
+              <p class="text-xs uppercase tracking-wide text-slate-400">
+                Volumen real Q1-2025
+              </p>
+              <p id="kpi-real-total-q1" class="mt-2 text-2xl font-semibold">
+                -
+              </p>
+              <p class="mt-1 text-xs text-slate-400">
+                Total de unidades egresadas en el trimestre.
+              </p>
+            </div>
+
+            <!-- Volumen predicho Q1 -->
+            <div class="bg-slate-800/70 rounded-2xl p-4 shadow-sm border border-slate-700">
+              <p class="text-xs uppercase tracking-wide text-slate-400">
+                Volumen predicho Q1-2025
+              </p>
+              <p id="kpi-pred-total-q1" class="mt-2 text-2xl font-semibold">
+                -
+              </p>
+              <p class="mt-1 text-xs text-slate-400">
+                Total de unidades proyectadas por el modelo híbrido.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Comparativo de modelos (nuevo gráfico) -->
+        <section class="space-y-3">
+          <h2 class="text-xl font-semibold">
+            Comparativo de modelos en entrenamiento
+          </h2>
+          <p class="text-xs text-slate-400 max-w-3xl">
+            Este gráfico resume el MAPE promedio de los modelos ARIMA, Random Forest y XGBoost en el periodo 2022–2024,
+            permitiendo visualizar de forma rápida cuál de ellos obtiene menor error porcentual en el conjunto histórico.
+          </p>
+          <div class="bg-slate-800/70 rounded-2xl p-4 border border-slate-700">
+            <div id="chart-mape-models" class="w-full h-72"></div>
+          </div>
+        </section>
+
+        <!-- Top SKUs por error -->
+        <section class="space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xl font-semibold">
+              Análisis de precisión por SKU — Q1-2025
+            </h2>
+            <p class="text-xs text-slate-400">
+              Basado en MAPE y RMSE del modelo híbrido por producto.
+            </p>
+          </div>
+
+          <div class="grid gap-6 lg:grid-cols-2">
+            <!-- Tabla Top SKUs -->
+            <div class="bg-slate-800/70 rounded-2xl p-4 border border-slate-700">
+              <h3 class="text-sm font-semibold mb-3">
+                Top 10 SKUs con mayor error (MAPE Q1-2025)
+              </h3>
+              <div class="overflow-x-auto">
+                <table class="min-w-full text-xs md:text-sm">
+                  <thead class="bg-slate-900/70">
+                    <tr>
+                      <th class="px-2 py-1 text-left font-medium text-slate-300">
+                        #
+                      </th>
+                      <th class="px-2 py-1 text-left font-medium text-slate-300">
+                        SKU
+                      </th>
+                      <th class="px-2 py-1 text-right font-medium text-slate-300">
+                        MAPE Q1 (%)
+                      </th>
+                      <th class="px-2 py-1 text-right font-medium text-slate-300">
+                        RMSE Q1
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbl-top-skus-body" class="divide-y divide-slate-700">
+                    <!-- Se rellena desde dashboard.js -->
+                  </tbody>
+                </table>
+              </div>
+              <p class="mt-2 text-xs text-slate-400">
+                Esta tabla permite identificar los productos con menor precisión relativa, útiles para priorizar ajustes
+                en políticas de stock y revisión de datos maestros.
+              </p>
+            </div>
+
+            <!-- Gráfico Top SKUs (barras) -->
+            <div class="bg-slate-800/70 rounded-2xl p-4 border border-slate-700">
+              <h3 class="text-sm font-semibold mb-3">
+                Distribución del error por SKU (MAPE)
+              </h3>
+              <div id="chart-top-skus" class="w-full h-80"></div>
+              <p class="mt-2 text-xs text-slate-400">
+                El gráfico complementa la tabla mostrando visualmente el nivel de error por SKU, facilitando la comparación
+                entre productos.
+              </p>
+            </div>
+          </div>
+
+          <!-- Nuevo: scatter MAPE vs RMSE -->
+          <div class="bg-slate-800/70 rounded-2xl p-4 border border-slate-700">
+            <h3 class="text-sm font-semibold mb-3">
+              Relación entre MAPE y RMSE por SKU (Q1-2025)
+            </h3>
+            <div id="chart-scat-top-skus" class="w-full h-80"></div>
+            <p class="mt-2 text-xs text-slate-400">
+              La dispersión MAPE–RMSE ayuda a identificar productos con errores altos tanto relativos como absolutos,
+              orientando posibles ajustes de parámetros o revisión de la demanda.
+            </p>
+          </div>
+        </section>
+      </main>
+
+      <!-- Footer -->
+      <footer class="border-t border-slate-800 bg-slate-950/80">
+        <div class="max-w-6xl mx-auto px-4 py-3 text-xs text-slate-500 flex flex-col md:flex-row md:items-center md:justify-between gap-1">
+          <span>
+            Trabajo de Suficiencia Profesional — Sistema basado en Machine Learning para predicción de inventarios.
+          </span>
+          <span>
+            Demo local · No apto para producción.
+          </span>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Lógica del dashboard -->
+    <script src="dashboard.js"></script>
+  </body>
+</html>
