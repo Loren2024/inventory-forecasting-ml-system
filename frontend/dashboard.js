@@ -1,188 +1,284 @@
-// frontend/dashboard.js
+const API_BASE = "http://127.0.0.1:8000/api";
 
-const API_BASE = "http://127.0.0.1:8000";
-
-// Helper genérico para GET
+// helpers
 async function apiGet(path) {
-  const res = await fetch(`${API_BASE}${path}`);
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status} en ${path}`);
-  }
-  return res.json();
+  const r = await fetch(`${API_BASE}${path}`);
+  if (!r.ok) throw new Error(`API ${path} -> ${r.status}`);
+  return await r.json();
 }
 
-// Helper para formatear números con seguridad
-function safeToFixed(value, digits = 2, suffix = "") {
-  const num = Number(value);
-  if (!Number.isFinite(num)) return "-";
-  return num.toFixed(digits) + suffix;
+function fmt(n, d = 2) {
+  if (n === null || n === undefined || Number.isNaN(n)) return "-";
+  return Number(n).toFixed(d);
 }
 
-// ============================
-// Carga de KPIs globales
-// ============================
-async function loadKpis() {
+function setActiveView(viewId) {
+  document.querySelectorAll(".view-block").forEach(v => v.classList.add("hidden"));
+  document.getElementById(`view-${viewId}`)?.classList.remove("hidden");
+
+  document.querySelectorAll("[data-view]").forEach(b => b.classList.remove("active-item"));
+  document.querySelector(`[data-view="${viewId}"]`)?.classList.add("active-item");
+}
+
+// ===================== KPIS =====================
+function renderKpis(k) {
+  const kpiRow = document.getElementById("kpiRow");
+  if (!kpiRow) return;
+  kpiRow.innerHTML = "";
+
+  const cards = [
+    { title: "SKUs analizados", value: k.total_skus ?? "-", sub: "dataset demo" },
+    { title: "Precisión promedio (45d)", value: fmt(100 - k.mape_val_hybrid_q1, 1) + " %", sub: "mayor es mejor" },
+    { title: "Precisión de volumen", value: fmt(k.ratio_pred_vs_real_pct, 2) + " %", sub: "total real vs predicho" },
+    { title: "Volumen real (45d)", value: fmt(k.real_total_q1, 0), sub: "unidades reales" }
+  ];
+
+  cards.forEach(c => {
+    const div = document.createElement("div");
+    div.className = "bg-white rounded-2xl p-4 card-hover border border-slate-100";
+    div.innerHTML = `
+      <p class="text-xs text-slate-500">${c.title}</p>
+      <p class="text-2xl font-semibold mt-1">${c.value}</p>
+      <p class="text-xs text-slate-400 mt-1">${c.sub}</p>
+    `;
+    kpiRow.appendChild(div);
+  });
+}
+
+// ===================== SELECTORES =====================
+async function loadSelectors() {
   try {
-    const data = await apiGet("/api/kpis/global");
-    console.log("KPIs recibidos:", data);
+    const cat = await apiGet("/skus");
+    const skuSelect = document.getElementById("skuSelect");
+    const familySelect = document.getElementById("familySelect");
+    if (!skuSelect || !familySelect) return;
 
-    // KPIs en tarjetas
-    document.getElementById("kpi-total-skus").textContent =
-      data.total_skus;
+    // familias
+    const families = [...new Set(cat.map(x => x.family).filter(Boolean))].sort();
+    familySelect.innerHTML = `<option value="">Todas las familias</option>`;
+    families.forEach(f => {
+      const opt = document.createElement("option");
+      opt.value = f; opt.textContent = f;
+      familySelect.appendChild(opt);
+    });
 
-    document.getElementById("kpi-mape-train-arima").textContent =
-      safeToFixed(data.mape_train_arima, 2, " %");
+    // skus
+    const skus = cat.map(x => x.sku).sort();
+    skuSelect.innerHTML = `<option value="">Seleccionar SKU</option>`;
+    skus.forEach(s => {
+      const opt = document.createElement("option");
+      opt.value = s; opt.textContent = s;
+      skuSelect.appendChild(opt);
+    });
 
-    document.getElementById("kpi-mape-train-rf").textContent =
-      safeToFixed(data.mape_train_rf, 2, " %");
-
-    document.getElementById("kpi-mape-train-xgb").textContent =
-      safeToFixed(data.mape_train_xgb, 2, " %");
-
-    document.getElementById("kpi-mape-val-hybrid").textContent =
-      safeToFixed(data.mape_val_hybrid_q1, 2, " %");
-
-    document.getElementById("kpi-ratio-volumen").textContent =
-      safeToFixed(data.ratio_pred_vs_real_pct, 2, " %");
-
-    document.getElementById("kpi-real-total-q1").textContent =
-      safeToFixed(data.real_total_q1, 0);
-
-    document.getElementById("kpi-pred-total-q1").textContent =
-      safeToFixed(data.pred_total_q1, 2);
-
-    // Gráfico de barras: MAPE entrenamiento por modelo
-    const chartDiv = document.getElementById("chart-mape-models");
-    if (chartDiv && window.Plotly) {
-      const modelos = ["ARIMA", "Random Forest", "XGBoost"];
-      const mapes = [
-        data.mape_train_arima,
-        data.mape_train_rf,
-        data.mape_train_xgb
-      ];
-
-      const trace = {
-        x: modelos,
-        y: mapes,
-        type: "bar",
-        text: mapes.map(v => safeToFixed(v, 1, " %")),
-        textposition: "outside"
-      };
-
-      const layout = {
-        title: "Comparación de MAPE promedio por modelo (entrenamiento)",
-        xaxis: { title: "Modelo" },
-        yaxis: { title: "MAPE (%)" },
-        margin: { t: 40, b: 60 }
-      };
-
-      Plotly.newPlot(chartDiv, [trace], layout);
-    }
-
-  } catch (err) {
-    console.error("Error en loadKpis:", err);
+  } catch (e) {
+    console.warn("No se pudo cargar catálogo", e);
   }
 }
 
-// ============================
-// Top SKUs por error (Q1-2025)
-// ============================
+// ===================== TOP SKUS ERROR =====================
 async function loadTopSkus() {
-  try {
-    const rows = await apiGet("/api/top_skus/error?limit=10");
-    console.log("Top SKUs recibidos:", rows);
+  const data = await apiGet("/top_skus/error?limit=10");
+  const body = document.getElementById("topSkusTableBody");
+  if (!body) return;
+  body.innerHTML = "";
 
-    // Tabla Top SKUs
-    const tbody = document.getElementById("tbl-top-skus-body");
-    if (tbody) {
-      tbody.innerHTML = "";
-      rows.forEach((r, idx) => {
-        const tr = document.createElement("tr");
-
-        const rankTd = document.createElement("td");
-        rankTd.className = "px-2 py-1";
-        rankTd.textContent = idx + 1;
-
-        const skuTd = document.createElement("td");
-        skuTd.className = "px-2 py-1 font-mono";
-        skuTd.textContent = r.sku;
-
-        const mapeTd = document.createElement("td");
-        mapeTd.className = "px-2 py-1 text-right";
-        mapeTd.textContent = safeToFixed(r.mape_q1, 2, " %");
-
-        const rmseTd = document.createElement("td");
-        rmseTd.className = "px-2 py-1 text-right";
-        rmseTd.textContent = safeToFixed(r.rmse_q1, 2);
-
-        tr.appendChild(rankTd);
-        tr.appendChild(skuTd);
-        tr.appendChild(mapeTd);
-        tr.appendChild(rmseTd);
-
-        tbody.appendChild(tr);
-      });
-    }
-
-    // Gráfico de barras Top SKUs (MAPE)
-    const chartBar = document.getElementById("chart-top-skus");
-    if (chartBar && window.Plotly && rows.length > 0) {
-      const skus = rows.map(r => r.sku);
-      const mapes = rows.map(r => r.mape_q1);
-
-      const trace = {
-        x: skus,
-        y: mapes,
-        type: "bar",
-        text: mapes.map(v => safeToFixed(v, 1, " %")),
-        textposition: "outside"
-      };
-
-      const layout = {
-        title: "Top 10 SKUs por error (MAPE Q1-2025)",
-        xaxis: { title: "SKU" },
-        yaxis: { title: "MAPE (%)" },
-        margin: { t: 40, b: 80 }
-      };
-
-      Plotly.newPlot(chartBar, [trace], layout);
-    }
-
-    // Gráfico de dispersión MAPE vs RMSE
-    const chartScat = document.getElementById("chart-scat-top-skus");
-    if (chartScat && window.Plotly && rows.length > 0) {
-      const skus = rows.map(r => r.sku);
-      const mapes = rows.map(r => r.mape_q1);
-      const rmses = rows.map(r => r.rmse_q1);
-
-      const trace = {
-        x: mapes,
-        y: rmses,
-        mode: "markers+text",
-        type: "scatter",
-        text: skus,
-        textposition: "top center"
-      };
-
-      const layout = {
-        title: "Relación MAPE vs. RMSE por SKU (Q1-2025)",
-        xaxis: { title: "MAPE (%)" },
-        yaxis: { title: "RMSE" },
-        margin: { t: 40, b: 60, l: 60, r: 20 }
-      };
-
-      Plotly.newPlot(chartScat, [trace], layout);
-    }
-
-  } catch (err) {
-    console.error("Error en loadTopSkus:", err);
-  }
+  data.forEach(r => {
+    const tr = document.createElement("tr");
+    tr.className = "border-b last:border-0";
+    tr.innerHTML = `
+      <td class="py-2">${r.sku}</td>
+      <td class="py-2 text-right">${fmt(r.mape_45d, 2)}%</td>
+      <td class="py-2 text-right">${fmt(r.rmse_45d, 3)}</td>
+    `;
+    body.appendChild(tr);
+  });
 }
 
-// ============================
-// Inicialización
-// ============================
-document.addEventListener("DOMContentLoaded", () => {
-  loadKpis();
-  loadTopSkus();
-});
+// ===================== ALERTAS (TABLA HOME) =====================
+async function loadAlerts() {
+  let data = [];
+  try {
+    data = await apiGet("/alerts/reorder?limit=10");
+  } catch {
+    data = [];
+  }
+
+  const body = document.getElementById("alertsTableBody");
+  if (!body) return;
+  body.innerHTML = "";
+
+  if (!data.length) {
+    body.innerHTML = `
+      <tr><td colspan="4" class="py-3 text-slate-400 text-center">
+        No hay alertas registradas en esta demo.
+      </td></tr>`;
+    return;
+  }
+
+  data.forEach(a => {
+    const stateColor =
+      a.status === "QUIEBRE" ? "text-red-600" :
+        a.status === "RIESGO" ? "text-amber-600" :
+          "text-emerald-600";
+
+    const tr = document.createElement("tr");
+    tr.className = "border-b last:border-0";
+    tr.innerHTML = `
+      <td class="py-2">${a.sku}</td>
+      <td class="py-2 font-semibold ${stateColor}">${a.status}</td>
+      <td class="py-2 text-right">${fmt(a.coverage_days, 1)}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+// ===================== ALERTAS VIEW (GRAFICO + TABLA) =====================
+async function loadAlertsView() {
+  let data = [];
+  try {
+    data = await apiGet("/replenishment/all?limit=50");
+  } catch (e) {
+    console.warn("No se pudo cargar replenishment", e);
+    return;
+  }
+
+  // -------- GRAFICO (solo si existe el div) --------
+  const chartDiv = document.getElementById("chartAlerts");
+  if (chartDiv) {
+    const x = data.map(d => d.sku);
+    const y = data.map(d => d.coverage_days ?? 0);
+    const colors = data.map(d =>
+      d.status === "QUIEBRE" ? "red" :
+        d.status === "RIESGO" ? "orange" : "green"
+    );
+
+    Plotly.newPlot("chartAlerts", [{
+      x, y, type: "bar", marker: { color: colors }, name: "Cobertura (días)"
+    }], {
+      title: "Cobertura proyectada por SKU",
+      xaxis: { title: "SKU", tickangle: -45 },
+      yaxis: { title: "Días de cobertura" },
+      margin: { t: 40, r: 10, l: 50, b: 100 },
+      template: "simple_white"
+    }, { responsive: true });
+  }
+
+  // -------- TABLA --------
+  const tbl = document.getElementById("replenishmentTableBody");
+  if (!tbl) return;
+
+  tbl.innerHTML = "";
+  data.forEach(d => {
+    const stateColor =
+      d.status === "QUIEBRE" ? "text-red-600" :
+        d.status === "RIESGO" ? "text-amber-600" :
+          "text-emerald-600";
+
+    const tr = document.createElement("tr");
+    tr.className = "border-b last:border-0";
+    tr.innerHTML = `
+      <td class="py-2">${d.sku}</td>
+      <td class="py-2 text-right">${fmt(d.stock_actual, 0)}</td>
+      <td class="py-2 text-right">${fmt(d.coverage_days, 1)}</td>
+      <td class="py-2 font-semibold ${stateColor}">${d.status}</td>
+      <td class="py-2 text-right">${fmt(d.qty_to_order, 0)}</td>
+      <td class="py-2">${d.break_date ?? "-"}</td>
+    `;
+    tbl.appendChild(tr);
+  });
+}
+
+
+// ===================== CHART PRINCIPAL =====================
+async function loadMainChart(sku = null) {
+  const targetSku = sku || document.getElementById("skuSelect")?.value;
+  if (!targetSku) return;
+
+  series = await apiGet(`/forecast_compare?sku=${encodeURIComponent(targetSku)}`);
+
+  const { sku_used, hist, pred, real } = series;
+
+  document.getElementById("chartSubtitle").textContent = `SKU: ${sku_used}`;
+
+  const traces = [
+    { x: hist.map(d => d.date), y: hist.map(d => d.y), mode: "lines", name: "Histórico" },
+    { x: pred.map(d => d.date), y: pred.map(d => d.y), mode: "lines+markers", name: "Pronóstico híbrido" },
+    { x: real.map(d => d.date), y: real.map(d => d.y), mode: "lines", name: "Real" }
+  ];
+
+  Plotly.newPlot("chartMain", traces, {
+    title: "Histórico vs Pronóstico híbrido vs Real",
+    xaxis: { title: "Fecha" },
+    yaxis: { title: "Unidades vendidas" },
+    template: "simple_white"
+  }, { responsive: true });
+}
+
+// ===================== FORECAST VIEW =====================
+async function loadForecastChart() {
+  const sku = document.getElementById("skuSelect")?.value;
+  if (!sku) return;
+  const rows = await apiGet(`/forecast/${encodeURIComponent(sku)}`);
+
+  Plotly.newPlot("chartForecast", [{
+    x: rows.map(d => d.date),
+    y: rows.map(d => d.y_hat),
+    mode: "lines+markers",
+    name: "Pronóstico híbrido"
+  }], {
+    title: `Pronóstico híbrido — ${sku}`,
+    xaxis: { title: "Fecha" },
+    yaxis: { title: "Unidades" },
+    template: "simple_white"
+  }, { responsive: true });
+}
+
+// ===================== ERRORS VIEW =====================
+async function loadErrorsChart() {
+  const top = await apiGet("/top_skus/error?limit=20");
+
+  Plotly.newPlot("chartErrors", [{
+    x: top.map(d => d.sku),
+    y: top.map(d => d.mape_45d),
+    type: "bar",
+    name: "MAPE 45d"
+  }], {
+    title: "Errores por SKU (MAPE 45 días)",
+    xaxis: { title: "SKU", tickangle: -45 },
+    yaxis: { title: "MAPE (%)" },
+    template: "simple_white",
+    margin: { t: 40, r: 10, l: 50, b: 100 }
+  }, { responsive: true });
+}
+
+// ===================== REFRESH =====================
+async function refreshAll() {
+  const kpis = await apiGet("/kpis/global");
+  renderKpis(kpis);
+
+  await loadSelectors();
+  await loadTopSkus();
+  await loadAlerts();
+  await loadMainChart();
+  await loadForecastChart();
+  await loadErrorsChart();
+  await loadAlertsView();
+}
+
+async function init() {
+  document.querySelectorAll("[data-view]").forEach(b => {
+    b.addEventListener("click", () => setActiveView(b.dataset.view));
+  });
+
+  document.getElementById("btnRefresh")?.addEventListener("click", refreshAll);
+
+  document.getElementById("skuSelect")?.addEventListener("change", async () => {
+    await loadMainChart();
+    await loadForecastChart();
+  });
+
+  await refreshAll();
+}
+
+document.addEventListener("DOMContentLoaded", init);

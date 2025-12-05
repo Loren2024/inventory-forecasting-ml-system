@@ -26,13 +26,18 @@ def get_metrics_sku(sku: str):
 
 def get_eval_q1(sku: str):
     rows = q(f"""
-        SELECT sku, mape_q1, rmse_q1
+        SELECT sku, mape_q1, rmse_q1, start_date::text, end_date::text
         FROM {SCHEMA}.model_eval
         WHERE sku=%s
     """, [sku])
     return rows[0] if rows else None
 
 def kpis_globales():
-    # consistencia global guardada en tu memoria: úsala como fallback si no existe model_eval
-    rows = q(f"SELECT AVG(mape_q1) AS mape_prom, AVG(rmse_q1) AS rmse_prom FROM {SCHEMA}.model_eval")
-    return rows[0]
+    # promedio global de métricas Q1 (45d)
+    rows = q(f"""
+        SELECT
+            AVG(mape_q1) AS mape_prom,
+            AVG(rmse_q1) AS rmse_prom
+        FROM {SCHEMA}.model_eval
+    """)
+    return rows[0] if rows else {"mape_prom": None, "rmse_prom": None}

@@ -30,3 +30,5 @@ class EvalRow(BaseModel):
     sku: str
     mape_q1: float
     rmse_q1: float
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
