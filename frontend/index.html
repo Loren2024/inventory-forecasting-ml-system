@@ -6,44 +6,23 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Dashboard Ejecutivo - Predicción de Inventarios</title>
 
-  <!-- Tailwind CDN solo para demo académica -->
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Plotly versión actual -->
+  <!-- Plotly -->
   <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
 
   <style>
-    /* Microinteracciones simples y limpias */
-    .card-hover {
-      transition: transform .15s ease, box-shadow .15s ease;
-    }
+    .card-hover { transition: transform .15s, box-shadow .15s; }
+    .card-hover:hover { transform: translateY(-2px); box-shadow: 0 10px 18px rgba(0,0,0,.06); }
 
-    .card-hover:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 18px rgba(0, 0, 0, .06);
-    }
+    .sidebar-item { transition: background .15s; }
+    .sidebar-item:hover { background: rgba(255,255,255,.06); }
 
-    .sidebar-item {
-      transition: background .15s ease;
-    }
+    .active-item { background: rgba(255,255,255,.10); }
 
-    .sidebar-item:hover {
-      background: rgba(255, 255, 255, .06);
-    }
-
-    .active-item {
-      background: rgba(255, 255, 255, .10);
-    }
-
-    .scrollbar-thin::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-
-    .scrollbar-thin::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
-      border-radius: 6px;
-    }
+    .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
   </style>
 </head>
 
@@ -52,7 +31,7 @@
   <div class="flex h-screen w-screen overflow-hidden">
 
     <!-- SIDEBAR -->
-    <aside id="sidebar" class="bg-slate-900 text-slate-100 w-64 min-w-[16rem] p-4 flex flex-col">
+    <aside class="bg-slate-900 text-slate-100 w-64 min-w-[16rem] p-4 flex flex-col">
       <div class="flex items-center gap-3 px-2 py-3">
         <div class="h-9 w-9 rounded-lg bg-slate-700 flex items-center justify-center font-semibold">
           ML
@@ -64,27 +43,29 @@
       </div>
 
       <nav class="mt-6 flex-1 space-y-1">
-        <button data-view="home"
-          class="sidebar-item active-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm">
-          <span class="text-lg">▣</span><span>Resumen ejecutivo</span>
+        <button data-view="home" class="sidebar-item active-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm">
+          <span class="text-lg">▣</span> <span>Resumen ejecutivo</span>
         </button>
+
         <button data-view="forecast" class="sidebar-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm">
-          <span class="text-lg">📈</span><span>Pronósticos</span>
+          <span class="text-lg">📈</span> <span>Pronósticos</span>
         </button>
+
         <button data-view="alerts" class="sidebar-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm">
-          <span class="text-lg">⚠</span><span>Alertas</span>
+          <span class="text-lg">⚠</span> <span>Alertas</span>
         </button>
-        <button data-view="interannual"
-          class="sidebar-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm">
-          <span class="text-lg">🗓</span><span>Comparativo interanual</span>
+
+        <button data-view="interannual" class="sidebar-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm">
+          <span class="text-lg">🗓</span> <span>Comparativo interanual</span>
         </button>
+
         <button data-view="errors" class="sidebar-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm">
-          <span class="text-lg">Σ</span><span>Errores por SKU</span>
+          <span class="text-lg">Σ</span> <span>Errores</span>
         </button>
       </nav>
 
       <div class="mt-auto text-xs text-slate-400 px-2">
-        Versión demo académica
+        Sistema de análisis
       </div>
     </aside>
 
@@ -95,10 +76,9 @@
       <header class="bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-4">
         <div class="flex-1">
           <h1 class="text-lg font-semibold">Dashboard Ejecutivo de Inventarios</h1>
-          <p class="text-xs text-slate-500">Pronóstico híbrido con validación real (45 días)</p>
+          <p class="text-xs text-slate-500">Modelo híbrido con validación real (45 días)</p>
         </div>
 
-        <!-- filtros -->
         <div class="flex items-center gap-2">
           <select id="familySelect" class="border border-slate-300 rounded-lg px-2 py-1 text-sm bg-white">
             <option value="">Todas las familias</option>
@@ -109,7 +89,7 @@
           </select>
 
           <button id="btnRefresh" class="bg-slate-900 text-white px-3 py-1 rounded-lg text-sm hover:bg-slate-800">
-            Actualizar
+            Refrescar datos
           </button>
         </div>
       </header>
@@ -117,15 +97,16 @@
       <!-- CONTENT -->
       <section id="content" class="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
 
-        <!-- KPIs -->
-        <div id="kpiRow" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          <!-- cards insertadas por JS -->
-        </div>
+        <!-- KPIs TÉCNICOS -->
+        <div id="kpiRow" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4"></div>
+
+        <!-- KPIs EJECUTIVOS DEL PORTAFOLIO -->
+        <div id="kpiPortfolioRow" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4"></div>
 
         <!-- HOME VIEW -->
         <div id="view-home" class="space-y-6 view-block">
 
-          <!-- chart principal -->
+          <!-- CHART PRINCIPAL -->
           <div class="bg-white rounded-2xl p-4 card-hover">
             <div class="flex items-center justify-between mb-2">
               <h2 class="font-semibold">Pronóstico Híbrido vs Real</h2>
@@ -134,18 +115,19 @@
             <div id="chartMain" class="h-[380px]"></div>
           </div>
 
-          <!-- fila 2 -->
+          <!-- FILA 2 -->
           <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            <!-- alertas -->
+
+            <!-- ALERTAS -->
             <div class="bg-white rounded-2xl p-4 card-hover">
-              <h3 class="font-semibold mb-2">Alertas de reposición (prioridad)</h3>
+              <h3 class="font-semibold mb-2">Alertas de reposición</h3>
               <div class="overflow-auto">
-                <table class="w-full text-sm">
+                <table class="w-full text-sm text-center">
                   <thead>
                     <tr class="text-slate-500 border-b">
-                      <th class="text-left py-2">SKU</th>
-                      <th class="text-left py-2">Estado</th>
-                      <th class="text-right py-2">Cobertura (días)</th>
+                      <th class="py-2">SKU</th>
+                      <th class="py-2">Estado</th>
+                      <th class="py-2">Cobertura (días)</th>
                     </tr>
                   </thead>
                   <tbody id="alertsTableBody"></tbody>
@@ -153,98 +135,108 @@
               </div>
             </div>
 
-            <!-- top skus error -->
+            <!-- TOP ROTACION -->
             <div class="bg-white rounded-2xl p-4 card-hover">
-              <h3 class="font-semibold mb-2">Top SKUs con mayor error (validación)</h3>
+              <h3 class="font-semibold mb-2">Top SKUs con mayor rotación</h3>
               <div class="overflow-auto">
-                <table class="w-full text-sm">
+                <table class="w-full text-sm text-center">
                   <thead>
                     <tr class="text-slate-500 border-b">
-                      <th class="text-left py-2">SKU</th>
-                      <th class="text-right py-2">MAPE 45d</th>
-                      <th class="text-right py-2">RMSE 45d</th>
+                      <th class="py-2">SKU</th>
+                      <th class="py-2">Unidades vendidas</th>
                     </tr>
                   </thead>
-                  <tbody id="topSkusTableBody"></tbody>
+                  <tbody id="rotationTableBody"></tbody>
                 </table>
               </div>
             </div>
+          </div>
+
+          <!-- COBERTURA POR FAMILIA -->
+          <div class="bg-white rounded-2xl p-4 card-hover">
+            <h3 class="font-semibold mb-2">Cobertura promedio por familia</h3>
+            <div id="chartFamilyCoverage" class="h-[350px]"></div>
           </div>
         </div>
 
         <!-- FORECAST VIEW -->
         <div id="view-forecast" class="space-y-6 view-block hidden">
           <div class="bg-white rounded-2xl p-4 card-hover">
-            <h2 class="font-semibold mb-2">Pronóstico por SKU (Q1-2025)</h2>
+            <h2 class="font-semibold mb-2">Pronóstico por SKU</h2>
             <div id="chartForecast" class="h-[420px]"></div>
           </div>
         </div>
+
         <!-- ALERTS VIEW -->
         <div id="view-alerts" class="space-y-6 view-block hidden">
 
-          <!-- Card 1: gráfico -->
+          <div id="kpiAlertsRow" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4"></div>
+
           <div class="bg-white rounded-2xl p-4 card-hover">
             <h2 class="font-semibold mb-2">Detalle de alertas</h2>
-
-            <!-- gráfico de alertas -->
             <div id="chartAlerts" class="h-[300px]"></div>
-
-            <p class="text-xs text-slate-500 mt-2">
-              Las alertas se calculan con base en cobertura proyectada y variabilidad del pronóstico.
-            </p>
           </div>
 
-          <!-- Card 2: tabla reposición -->
           <div class="bg-white rounded-2xl p-4 card-hover">
-            <h3 class="font-semibold mb-2">Recomendación de reposición por SKU (demo)</h3>
+            <h3 class="font-semibold mb-2">Recomendación de reposición</h3>
+
             <div class="overflow-auto">
-              <table class="w-full text-sm">
+              <table class="w-full text-sm text-center">
                 <thead>
                   <tr class="text-slate-500 border-b">
-                    <th class="text-left py-2">SKU</th>
-                    <th class="text-right py-2">Stock (sim.)</th>
-                    <th class="text-right py-2">Cobertura (días)</th>
-                    <th class="text-left py-2">Estado</th>
-                    <th class="text-right py-2">Sugerencia rep.</th>
-                    <th class="text-left py-2">Fecha quiebre</th>
+                    <th class="py-2">SKU</th>
+                    <th class="py-2">Stock</th>
+                    <th class="py-2">Cobertura (días)</th>
+                    <th class="py-2">Estado</th>
+                    <th class="py-2">Unidades sugeridas</th>
+                    <th class="py-2">Fecha estimada de quiebre</th>
                   </tr>
                 </thead>
                 <tbody id="replenishmentTableBody"></tbody>
               </table>
             </div>
 
-            <p class="text-xs text-slate-400 mt-2">
-              *Stock simulado para demo académica.
-            </p>
           </div>
 
         </div>
 
-
         <!-- INTERANNUAL VIEW -->
         <div id="view-interannual" class="space-y-6 view-block hidden">
           <div class="bg-white rounded-2xl p-4 card-hover">
-            <h2 class="font-semibold mb-2">Comparativo interanual alineado</h2>
+            <h2 class="font-semibold mb-2">Comparativo interanual</h2>
             <div id="chartInterannual" class="h-[420px]"></div>
-            <p class="text-xs text-slate-400 mt-2">
-              *Vista opcional. Se habilita si el endpoint interanual está implementado.*
-            </p>
           </div>
         </div>
 
         <!-- ERRORS VIEW -->
         <div id="view-errors" class="space-y-6 view-block hidden">
           <div class="bg-white rounded-2xl p-4 card-hover">
-            <h2 class="font-semibold mb-2">Errores por SKU (validación 45 días)</h2>
-            <div id="chartErrors" class="h-[380px]"></div>
+
+            <h2 class="font-semibold mb-4">Errores por SKU</h2>
+
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              <div class="overflow-auto">
+                <table class="w-full text-sm text-center">
+                  <thead>
+                    <tr class="text-slate-500 border-b">
+                      <th class="py-2">SKU</th>
+                      <th class="py-2">MAPE (%)</th>
+                      <th class="py-2">RMSE</th>
+                    </tr>
+                  </thead>
+                  <tbody id="errorsTableBody"></tbody>
+                </table>
+              </div>
+
+              <div id="chartErrors" class="h-[380px]"></div>
+            </div>
+
           </div>
         </div>
 
       </section>
     </main>
   </div>
-  <script defer src="https://cdn.tailwindcss.com"></script>
-  <script defer src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
 
   <script src="./dashboard.js"></script>
 </body>

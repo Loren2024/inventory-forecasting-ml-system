@@ -6,13 +6,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+SCHEMA = os.getenv("PG_SCHEMA", "inv")  # 👈 importante que exista esta línea
+
 def get_conn():
     conn = psycopg2.connect(
-        host=os.getenv("DB_HOST", "localhost"),
-        port=os.getenv("DB_PORT", 5432),
-        dbname=os.getenv("DB_NAME", "tsp_inventory"),
-        user=os.getenv("DB_USER", "tsp_app"),
-        password=os.getenv("DB_PASSWORD", "1234")
+        host=os.getenv("PG_HOST", "localhost"),
+        port=int(os.getenv("PG_PORT", 5432)),
+        dbname=os.getenv("PG_DB", "tsp_inventory"),
+        user=os.getenv("PG_USER", "tsp_app"),
+        password=os.getenv("PG_PASSWORD", "1234"),
     )
     return conn
 
